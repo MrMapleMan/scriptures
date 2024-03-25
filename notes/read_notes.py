@@ -9,8 +9,8 @@ import os
 sys.path.insert(0,os.path.realpath(os.path.dirname(__file__)+'/..'))
 from scriptures import Scriptures
 
-def printVerse(df, index, print_tags=False, print_reference=True):
-    x = df.iloc[i][['source location', 'url_volume', 'url_book','url_chapter','url_verse','tags','tags_list']]
+def printVerse(df, index, print_tags=False, print_reference=True, print_notes=True):
+    x = df.iloc[i][['source location', 'url_volume', 'url_book','url_chapter','url_verse','tags','tags_list','note text']]
     volume = url_volume_to_verse_volume_dict[x['url_volume']]
     book = url_book_dict[x['url_book']]
     chapter = int(x['url_chapter'])
@@ -23,8 +23,14 @@ def printVerse(df, index, print_tags=False, print_reference=True):
                        (df_verses['verse_number']==verse)]
 
 
-    if print_reference:
+    if(print_reference):
         print('{} - {} {}:{}'.format(result.iloc[0]['volume_title'], result.iloc[0]['book_title'], result.iloc[0]['chapter_number'], result.iloc[0]['verse_number']))
+
+    if(print_notes):
+        note = x['note text']
+        if(isinstance(note, str)):
+            print('Note:',x['note text'])
+            print()
 
     print(result.iloc[0].scripture_text)
     print('\n'*1)
@@ -56,14 +62,20 @@ scriptures_notes_df['url_chapter'] = scriptures_notes_df['source location'].appl
 scriptures_notes_df['url_verse'] = scriptures_notes_df['source location'].apply(lambda x: re.search(verse_reference_regex,x).group(4) if re.search(verse_reference_regex, x) else np.nan)
 
 # Get notes with tags
-notes_with_tags = scriptures_notes_df[~scriptures_notes_df['tags'].isnull()]
-notes_with_tags['tags_list'] = notes_with_tags['tags'].apply(lambda x: x.split(';'))
+notes_with_tags = scriptures_notes_df[~scriptures_notes_df['tags'].isnull()].copy()
+notes_with_tags['tags_list'] = notes_with_tags['tags'].apply(lambda x: x.split('; '))
 
-dad_notes = notes_with_tags[notes_with_tags['tags_list'].apply(lambda x: 'Dad Scripture Mastery' in x)]
+# dad_notes = notes_with_tags[notes_with_tags['tags_list'].apply(lambda x: 'Dad Scripture Mastery' in x)]
+dad_notes = notes_with_tags[notes_with_tags['tags'].str.contains('Dad Scripture Mastery')]
 
-print(dad_notes.columns)
-print(scriptures_notes_df.columns)
+
+print()
 for i in range(len(dad_notes)):
     printVerse(dad_notes, i, print_tags=True)
-    
-print(dad_notes)
+
+dad_notes_all = df[df['tags'].apply(lambda x: 'Dad' in x if isinstance(x,str) else False)][['source location', 'tags','type','note text']]
+print()
+print(dad_notes_all)
+dad_notes_all_failed = dad_notes_all[~dad_notes_all['source location'].str.contains(scripture_url_substring)]
+print()
+print(dad_notes_all_failed)
