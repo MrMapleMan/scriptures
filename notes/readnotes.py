@@ -5,8 +5,8 @@
 import os
 import pickle
 import re
-import pandas as pd
 import sys
+import pandas as pd
 from collections import defaultdict
 sys.path.insert(0,os.path.realpath(os.path.dirname(__file__)+'/../scriptures'))
 from scriptures import Scriptures
@@ -39,7 +39,7 @@ class Notes:
     def findAllTags(self):
          self.all_tags = self.flatten(self.df_tagged_notes['tags_list'].to_list())
          self.unique_tags = list(set(self.all_tags))
-        
+
     def getAllTags(self):
         return self.unique_tags
          
@@ -82,16 +82,20 @@ class Notes:
         return False
         
     def printSortedTags(self):        
-        hyphens = '-'*len('| {:5} | {:^65} {:3}        {:^65} {:3} |'.format('','Tags (Alphabetical)','','Tags (Descending By Count)',''))
+        hyphens = '-'*len('| {:5} | {:^65} | {:5} | {:^65} | {:5} |'.format('','Tags (Alphabetical)','','Tags (Descending By Count)',''))
         print(hyphens)
-        print('| {:5} | {:^65} {:3} |      {:^65} {:3} |'.format('Index','Tags (Alphabetical)','','Tags (Descending By Count)',''))
+        print('| {:5} | {:^65} | {:5} | {:^65} | {:5} |'.format('Index','Tags (Alphabetical)','Count','Tags (Descending By Count)','Count'))
         print(hyphens)
         for i in range(min([len(self.sorted_alphabet), 100])):
-            print('| {:5,} | {:^65} {:03} |      {:^65} {:03} |'.format(i, 
+            print('| {:5,} | {:^65} |  {:03}  | {:^65} |  {:03}  |'.format(i, 
                                                                 self.sorted_alphabet[i][0], 
                                                                 self.sorted_alphabet[i][1], 
                                                                 self.sorted_count[i][0], self.sorted_count[i][1]))
+        print(hyphens)
+        print()
     
+    #'| {:5} | {:^65} | {:5} | {:^65} | {:5} |'
+    #'| {:5} | {:^65} | {:5} | {:^65} | {:5} |'
     def getColumns(self):
         return self.df_all_notes.columns
     
@@ -139,13 +143,13 @@ if __name__ == '__main__':
     # print(notes.df_tagged_notes[:5].tags_list)
     
     # findTagsRegexp
-    # notes.findTagsRegexp(r'fear|factful',flags=re.IGNORECASE)
+    notes.findTagsRegexp(r'Christ\b',flags=re.IGNORECASE)
     
     # Use 'findRelatedTags'
-    # related_tags = notes.findRelatedTags('Faith')
-    # for i in related_tags.items():
-    #     if (i[1] != 0):
-    #         print('{:50} {:2}'.format(i[0], i[1]))
+    related_tags = notes.findRelatedTags('Jesus Christ')
+    for i in related_tags.items():
+        if (i[1] != 0):
+            print('{:50} {:2}'.format(i[0], i[1]))
     
     sys.exit()
     for i in notes.getAllTags()[:20]:
