@@ -7,11 +7,14 @@ import pickle
 import re
 import pandas as pd
 import sys
+from collections import defaultdict
 sys.path.insert(0,os.path.realpath(os.path.dirname(__file__)+'/../scriptures'))
 from scriptures import Scriptures
 
 class Notes:
-    def __init__(self, notes_pickle='notes_with_content_df.pkl'):
+    def __init__(self, notes_pickle=''):
+        if notes_pickle == '':
+            notes_pickle = os.path.realpath(os.path.dirname(__file__)+'/notes_with_content_df.pkl')
         if notes_pickle[-4:] == '.pkl':
             with open(notes_pickle,'rb') as f:
                 self.df_all_notes = pickle.load(f)
@@ -65,8 +68,9 @@ class Notes:
         print()
         
     def isContained(self,search_for,search_in, regex_bool=False, re_flags=re.NOFLAG):
-        # search_for = [i.lower() for i in search_for]
-        # search_in  = [i.lower() for i in search_in]
+        if (re_flags & re.IGNORECASE) and (not regex_bool):
+            search_for = [i.lower() for i in search_for]
+            search_in  = [i.lower() for i in search_in]
         for idx,j in enumerate(search_for):
             if regex_bool:
                 if True not in [True if re.search(j,val,re_flags) else False for val in search_in]:
@@ -102,40 +106,54 @@ class Notes:
         print(matching)
         pd.set_option('display.max_rows', max_rows)
         
+    def flatten(self, i):
+        return [x 
+                for xs in i 
+                for x in xs]
+        
+    def findRelatedTags(self, tag):
+        tags_lists = self.df_tagged_notes.tags_list.to_list()
+        all_tags = self.flatten(tags_lists)
+        unique_tags = list(set(all_tags))
+        tag_counts = defaultdict(int)
+        for tag_list in tags_lists:
+            if tag in tag_list:
+                for i in tag_list:
+                    if i != tag:
+                        tag_counts[i] += 1
+        return {k: v for k, v in sorted(tag_counts.items(), key=lambda item: item[1], reverse=True)}        
 
 if __name__ == '__main__':
     print('John: {}'.format(sys.version))
     notes = Notes()
-    search_for = ['fasdftu','ness']
-    search_in = ['factfulness','joiefjfactu']
-    print(notes.isContained(search_for, search_in, True))
-    result = notes.findNotesWithTags(['faith','joy|happ'],use_regex=True, re_flags=re.IGNORECASE)[['source location','tags_list','contents']]
-    print(result)
-    print(result['tags_list'].to_list())
-    notes.findTagsRegexp('Jesus|Christ\\b(?: \()?|Savior', flags=re.IGNORECASE)
-    notes.printSortedTags()
-    notes.searchContents('ID not found on url ')
+    # result = notes.findNotesWithTags(['faith','joy|happ'],use_regex=True, re_flags=re.IGNORECASE)[['source location','tags_list','contents']]
+    # print(result)
+    # print(result['tags_list'].to_list())
+    # notes.findTagsRegexp('Jesus|Christ\\b(?: \()?|Savior', flags=re.IGNORECASE)
+    # notes.printSortedTags()
+
+    # findNotesWithTags
+    # print(notes.findNotesWithTags(['Jesus|Christ|Savior|Atonement'], re_flags=re.IGNORECASE, use_regex=True))
+
+    # df_tagged_notes format
+    # print(notes.df_tagged_notes[:5].tags_list)
+    
+    # findTagsRegexp
     # notes.findTagsRegexp(r'fear|factful',flags=re.IGNORECASE)
+    
+    # Use 'findRelatedTags'
+    # related_tags = notes.findRelatedTags('Faith')
+    # for i in related_tags.items():
+    #     if (i[1] != 0):
+    #         print('{:50} {:2}'.format(i[0], i[1]))
     
     sys.exit()
     for i in notes.getAllTags()[:20]:
         print(i)
 
-# def flatten(i):
-#     return [x 
-#             for xs in i 
-#             for x in xs]
 
-# def findRelatedTags(df):
-#     tags_list = df.tags_list.to_list()
-#     all_tags = flatten(tags_list)
-#     unique_tags = list(set(all_tags))
-#     tag_counts = {}
-#     [tag_counts.setdefault(i,0) for i in unique_tags]
-#     for tag in all_tags:
-#         tag_counts[tag] += 1
-#     # return {k: v for k, v in sorted(tag_counts.items(), key=lambda item: item[0].lower(), reverse=False)}
-#     return {k: v for k, v in sorted(tag_counts.items(), key=lambda item: item[1], reverse=True)}
+
+
 
 # # Get notes with tags
 # notes_with_tags = df[~df['tags'].isnull()].copy()
