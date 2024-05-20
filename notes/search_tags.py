@@ -1,13 +1,20 @@
 import os
+import pickle
 import pandas as pd
 import sys
 sys.path.insert(0,os.path.realpath(os.path.dirname(__file__)+'/..'))
-from scriptures import Scriptures
+print(os.path.realpath(os.path.dirname(__file__)+'/..'))
+from scriptures.scriptures import Scriptures
 
 s = Scriptures()
 df_verses = s.getDF()
 
-df = pd.read_csv(os.path.dirname(__file__)+'/LDSNotesDownload.csv')
+try:
+    with open(os.path.realpath(os.path.dirname(__file__)) + 'notes_with_content_df.pkl', 'rb') as f:
+        df = pickle.load(f)
+except:
+    df = pd.read_csv(os.path.dirname(__file__)+'/LDSNotesDownload.csv')
+
 
 def flatten(i):
     return [x 
