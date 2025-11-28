@@ -1,0 +1,4 @@
+linux_scriptures_venv/
+scripture_venv/
+__pycache__/
+*.db
