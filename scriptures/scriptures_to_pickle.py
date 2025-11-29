@@ -4,7 +4,7 @@ import pandas as pd
 import requests
 
 def saveScripturesToPickle():
-    m = 'https://raw.githubusercontent.com/MrMapleMan/scriptures/main/lds-scriptures.csv'
+    m = 'https://raw.githubusercontent.com/MrMapleMan/scriptures/refs/heads/main/scriptures/lds-scriptures.csv'
     req = requests.get(m)
     txt = req.text
     df_verses = pd.read_csv(io.StringIO(txt), sep=',')
