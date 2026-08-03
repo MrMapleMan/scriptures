@@ -1,7 +1,9 @@
 linux_scriptures_venv/
+linux_venv_new/
 scripture_venv/
 __pycache__/
 *.db
+*.sqlite
 myapp.log
 results-All-Scriptures.csv
 results-Book-of-Mormon.csv
@@ -11,3 +13,12 @@ results-Old-Testament.csv
 results-Pearl-of-Great-Price.csv
 pattern-search-results.csv
 temp.csv
+scripture_text.csv
+no?commit*
+notes/LDSNotesDownload.csv
+create_scriptures_db.sql
+resources/annotations/scripture_annotations_20260802.sqlite-shm
+resources/annotations/scripture_annotations_20260802.sqlite-wal
+resources/annotations/scripture_annotations_20260802.sqlite:Zone.Identifier
+resources/annotations/scripture-app.zip
+resources/annotations/scripture-app.zip:Zone.Identifier
