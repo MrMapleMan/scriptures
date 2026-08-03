@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scripture Notes</title>
+<meta name="description" content="Search and filter scripture annotations, highlights, and notes.">
+<meta name="theme-color" content="#1b1d21">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-row">
+    <h1 class="brand">Scripture Notes</h1>
+    <button class="icon-btn" id="filters-toggle" aria-expanded="false" aria-controls="filters">
+      Filters <span class="badge" id="filter-count" hidden>0</span>
+    </button>
+  </div>
+
+  <div class="searchbar">
+    <input type="search" id="q" placeholder="Search notes and scripture text…"
+           autocomplete="off" spellcheck="false" aria-label="Search">
+    <button class="clear-btn" id="q-clear" title="Clear search" hidden>&times;</button>
+  </div>
+
+  <div class="search-opts">
+    <div class="segmented" role="group" aria-label="Search scope">
+      <button data-scope="both" class="on">Both</button>
+      <button data-scope="notes">Notes</button>
+      <button data-scope="verses">Scripture</button>
+    </div>
+    <label class="check"><input type="checkbox" id="opt-regex"> Regex</label>
+    <label class="check"><input type="checkbox" id="opt-case"> Aa</label>
+    <span class="err" id="regex-err" hidden></span>
+  </div>
+
+  <section class="filters" id="filters" hidden>
+  <div class="filter-grid">
+    <div class="field">
+      <label for="f-volume">Volume</label>
+      <select id="f-volume"><option value="">All volumes</option></select>
+    </div>
+    <div class="field">
+      <label for="f-book">Book</label>
+      <select id="f-book"><option value="">All books</option></select>
+    </div>
+    <div class="field">
+      <label for="f-kind">Content</label>
+      <select id="f-kind">
+        <option value="">Everything</option>
+        <option value="scripture">Scripture annotations</option>
+        <option value="note">Notes &amp; journal entries</option>
+        <option value="withnote">Only ones with a note</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="f-sort">Sort</label>
+      <select id="f-sort">
+        <option value="recent">Most recent</option>
+        <option value="oldest">Oldest</option>
+        <option value="reference">Scripture order</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="field tags-field">
+    <label for="tag-search">Tags <span class="hint" id="tag-mode-hint"></span></label>
+    <div class="tag-controls">
+      <input type="search" id="tag-search" placeholder="Filter tag list…" autocomplete="off">
+      <div class="segmented small" role="group" aria-label="Tag match mode">
+        <button data-tagmode="any" class="on">Any</button>
+        <button data-tagmode="all">All</button>
+      </div>
+      <div class="segmented small" role="group" aria-label="Tag sort order">
+        <button data-tagsort="count" class="on">Most used</button>
+        <button data-tagsort="name">A–Z</button>
+      </div>
+      <button class="link-btn" id="tags-clear">Clear tags</button>
+    </div>
+    <div class="chosen-tags" id="chosen-tags"></div>
+      <div class="tag-list" id="tag-list"></div>
+    </div>
+  </section>
+</header>
+
+<main>
+  <div class="status" id="status">Loading data…</div>
+  <div id="results"></div>
+  <button class="more-btn" id="more" hidden>Show more</button>
+</main>
+
+<div class="reader-overlay" id="reader" hidden>
+  <div class="reader-panel" role="dialog" aria-modal="true" aria-labelledby="reader-title">
+    <div class="reader-head">
+      <h2 id="reader-title"></h2>
+      <button class="icon-btn" id="reader-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="reader-body" id="reader-body"></div>
+  </div>
+</div>
+
+<script src="vendor/sql-wasm.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
