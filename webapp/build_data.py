@@ -75,7 +75,8 @@ CREATE TABLE annotations (
     note_text     TEXT,                   -- note_html with markup stripped
     verse_text    TEXT,                   -- text of the verses this annotation touches
     colors        TEXT,                   -- comma-separated distinct highlight colors
-    tags          TEXT,                   -- comma-separated tag names (display + quick scan)
+    tags          TEXT,                   -- display only; 322 tag names contain ", ",
+                                          -- so use annotation_tags to read them back
     refs_json     TEXT,
     created       TEXT,
     updated       TEXT,
@@ -186,9 +187,14 @@ def build_scriptures(src, out):
 def parse_highlights(raw, book_ids, verse_text):
     """Return (per-verse highlight rows, touched verses, colors) for one annotation.
 
-    Highlight offsets are 1-based inclusive *word* indexes into the rendered
-    verse; -1 means "run to the start/end of the verse". A minority of exports
-    overshoot the verse's word count by a word or two, so ends are clamped.
+    Highlight offsets are inclusive *word* indexes into the paragraph as Gospel
+    Library renders it, which puts the verse number in front of the text as word
+    1. So verse-text word == offset - 1. -1 means "run to the start/end of the
+    verse". Scored against 665 fully bounded highlights, this convention lands a
+    clause boundary at 39% of interior starts and 62% of interior ends, versus
+    9%/12% for reading the offsets directly and ~13%/19% for random spans; it
+    also explains the highlights whose end offset is exactly word_count + 1.
+    A few still overshoot by a word or two, so both bounds are clamped.
     """
     entries = load_json(raw, []) or []
     rows, verses, colors = [], [], []
@@ -206,8 +212,8 @@ def parse_highlights(raw, book_ids, verse_text):
         word_count = len(text.split())
         start = entry.get("OffsetStart", -1)
         end = entry.get("OffsetEnd", -1)
-        start = 1 if start in (-1, None) else max(1, min(int(start), word_count))
-        end = word_count if end in (-1, None) else max(1, min(int(end), word_count))
+        start = 1 if start in (-1, None) else max(1, min(int(start) - 1, word_count))
+        end = word_count if end in (-1, None) else max(1, min(int(end) - 1, word_count))
         if end < start:
             start, end = end, start
 

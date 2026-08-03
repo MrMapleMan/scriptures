@@ -1,7 +1,7 @@
 /* Cache-first shell + dataset so the app works offline once loaded.
    Bump CACHE whenever the shell or data.sqlite is rebuilt. */
 
-const CACHE = "scripture-notes-v2";
+const CACHE = "scripture-notes-v3";   // bumped: app.sqlite rebuilt with corrected highlight offsets
 const ASSETS = [
   "./",
   "./index.html",

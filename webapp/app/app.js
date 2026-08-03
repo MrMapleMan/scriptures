@@ -12,19 +12,26 @@ const state = {
   verseText: new Map(),    // "bookId:chapter:verse" -> text
   books: new Map(),        // bookId -> {id, title, volumeId, url, sort}
   volumes: [],
-  tags: [],
+  facetTags: [],           // [{name, count}] for the current result set
+  facetTotal: 0,
   query: "",
+  // Filters the list *and* picks which text a search term matches:
+  // "both" everything | "notes" anything carrying a note | "verses" scripture-linked
   scope: "both",
+  noteOnly: false,        // only entries not tied to a verse
   regex: false,
   caseSensitive: false,
   volume: "",
   book: "",
-  kind: "",
   sort: "recent",
-  tagMode: "any",
+  tagMode: "all",          // "all" = must have every chosen tag, "any" = union
   tagSort: "count",
   chosenTags: new Set(),
-  tagFilter: "",
+  tagFilter: "",           // narrows the chip list only
+  tagRegexSource: "",      // extra constraint on results: a tag must match this
+  tagRegex: null,
+  tagRegexHits: null,      // Set of tag names the regex matches
+  allTags: [],
   results: [],
   shown: 0,
   matcher: null,
@@ -38,17 +45,23 @@ const el = {
   q: $("#q"),
   qClear: $("#q-clear"),
   regexErr: $("#regex-err"),
+  searchOpts: $(".search-opts"),
+  searchFlags: $(".search-flags"),
+  noteOnly: $("#f-note-only"),
+  tagRegex: $("#tag-regex"),
+  tagRegexHint: $("#tag-regex-hint"),
+  tagRegexErr: $("#tag-regex-err"),
   filters: $("#filters"),
   filtersToggle: $("#filters-toggle"),
   filterCount: $("#filter-count"),
   volume: $("#f-volume"),
   book: $("#f-book"),
-  kind: $("#f-kind"),
   sortSel: $("#f-sort"),
   tagSearch: $("#tag-search"),
   tagList: $("#tag-list"),
   chosenTags: $("#chosen-tags"),
   tagsClear: $("#tags-clear"),
+  tagModeToggle: $("#tag-mode-toggle"),
   tagModeHint: $("#tag-mode-hint"),
   reader: $("#reader"),
   readerTitle: $("#reader-title"),
@@ -70,6 +83,10 @@ function rowsOf(db, sql) {
   while (stmt.step()) out.push(stmt.getAsObject());
   stmt.free();
   return out;
+}
+
+function plural(n, word) {
+  return n.toLocaleString() + " " + word + (n === 1 ? "" : "s");
 }
 
 function verseKey(bookId, chapter, verse) {
@@ -112,8 +129,6 @@ async function load() {
   for (const b of rowsOf(db, "SELECT id, volume_id, url, title, sort FROM books ORDER BY sort")) {
     state.books.set(b.id, { id: b.id, volumeId: b.volume_id, url: b.url, title: b.title, sort: b.sort });
   }
-  state.tags = rowsOf(db, "SELECT name, count FROM tags ORDER BY count DESC, name");
-
   for (const h of rowsOf(db, `SELECT annotation_id, book_id, chapter, verse, word_start, word_end,
                                      color, style FROM highlights`)) {
     let list = state.highlights.get(h.annotation_id);
@@ -129,11 +144,23 @@ async function load() {
     state.verseText.set(verseKey(v.book_id, v.chapter, v.verse), v.text);
   }
 
+  state.allTags = rowsOf(db, "SELECT name FROM tags ORDER BY name").map((r) => r.name);
+
+  // One row per tag: 322 tag names contain ", ", so the comma-joined
+  // annotations.tags column cannot be split back apart safely.
+  const tagsByAnnotation = new Map();
+  for (const r of rowsOf(db, "SELECT annotation_id, tag FROM annotation_tags")) {
+    let list = tagsByAnnotation.get(r.annotation_id);
+    if (!list) tagsByAnnotation.set(r.annotation_id, (list = []));
+    list.push(r.tag);
+  }
+
   for (const a of rowsOf(db, `SELECT id, kind, type, location, item_title, book_id, chapter,
                                      verse_start, verse_end, note_title, note_text, verse_text,
                                      tags, refs_json, created, updated, sort_date
                               FROM annotations`)) {
     const book = a.book_id ? state.books.get(a.book_id) : null;
+    const tags = tagsByAnnotation.get(a.id) || [];
     const ann = {
       id: a.id,
       kind: a.kind,
@@ -149,8 +176,8 @@ async function load() {
       noteTitle: a.note_title || "",
       noteText: a.note_text || "",
       verseText: a.verse_text || "",
-      tags: a.tags ? a.tags.split(", ") : [],
-      tagSet: new Set(a.tags ? a.tags.split(", ") : []),
+      tags,
+      tagSet: new Set(tags),
       refs: a.refs_json ? JSON.parse(a.refs_json) : null,
       created: a.created,
       updated: a.updated,
@@ -188,6 +215,39 @@ function buildMatcher() {
   return state.matcher;
 }
 
+/* The tag regex is a separate constraint from the search box: it matches tag
+   *names*, and keeps annotations carrying at least one tag that matches. */
+function buildTagRegex() {
+  el.tagRegexErr.hidden = true;
+  state.tagRegex = null;
+  state.tagRegexHits = null;
+  const source = state.tagRegexSource.trim();
+  if (!source) return;
+  let re;
+  try {
+    re = new RegExp(source, "i");
+  } catch (err) {
+    el.tagRegexErr.textContent = "Invalid regex: " + err.message.replace(/^.*?:\s*/, "");
+    el.tagRegexErr.hidden = false;
+    return;
+  }
+  state.tagRegex = re;
+  state.tagRegexHits = new Set(state.allTags.filter((name) => re.test(name)));
+}
+
+/* Selected tags and the regex are two tag constraints combined by the same
+   all/any toggle: "all" ANDs them, "any" ORs them. */
+function matchesTagConstraints(ann, tags, hits) {
+  const narrowing = state.tagMode === "all";
+  const chosenHit = tags.length
+    ? (narrowing ? tags.every((t) => ann.tagSet.has(t)) : tags.some((t) => ann.tagSet.has(t)))
+    : null;
+  const regexHit = hits ? ann.tags.some((t) => hits.has(t)) : null;
+  return narrowing
+    ? chosenHit !== false && regexHit !== false
+    : chosenHit === true || regexHit === true;
+}
+
 function testMatch(text) {
   if (!text) return false;
   state.matcher.lastIndex = 0;
@@ -218,24 +278,35 @@ function matchRanges(text) {
 
 function applyFilters() {
   buildMatcher();
+  buildTagRegex();
   const searchable = state.query.trim() !== "" && state.matcher !== null;
+  // Regex / case only shape a search term, so dim them until there is one.
+  el.searchOpts.classList.toggle("idle", !state.query.trim());
+  el.searchFlags.title = state.query.trim() ? "" : "Applies once you type a search term";
   const tags = [...state.chosenTags];
 
-  state.results = state.annotations.filter((ann) => {
-    if (state.kind === "scripture" && ann.kind !== "scripture") return false;
-    if (state.kind === "note" && ann.kind !== "note") return false;
-    if (state.kind === "withnote" && !ann.hasNote) return false;
+  // Everything except the tag filter. Also the facet source for OR mode, so
+  // that picking one tag does not hide the others you might want to add.
+  const base = state.annotations.filter((ann) => {
+    if (state.scope === "notes" && !ann.hasNote) return false;
+    if (state.scope === "verses" && ann.kind !== "scripture") return false;
+    if (state.noteOnly && ann.kind !== "note") return false;
     if (state.volume && String(ann.volumeId) !== state.volume) return false;
     if (state.book && String(ann.bookId) !== state.book) return false;
-    if (tags.length) {
-      const hit = state.tagMode === "all"
-        ? tags.every((t) => ann.tagSet.has(t))
-        : tags.some((t) => ann.tagSet.has(t));
-      if (!hit) return false;
-    }
     if (searchable && !annotationMatches(ann)) return false;
     return true;
   });
+
+  const hits = state.tagRegexHits;
+  state.results = (tags.length || hits)
+    ? base.filter((ann) => matchesTagConstraints(ann, tags, hits))
+    : base;
+
+  // Narrowing mode offers only tags found on the results, so every chip is a
+  // real next step. Union mode has to offer more than the results contain,
+  // otherwise a second, unrelated tag could never be added.
+  countFacetTags(state.tagMode === "all" ? state.results : base);
+  renderTags();
 
   const cmp = {
     recent: (a, b) => (b.sortDate || "").localeCompare(a.sortDate || ""),
@@ -436,40 +507,83 @@ function closeReader() {
 
 /* ------------------------------------------------------------------- tags */
 
+/* Tag counts for the current result set, so the chooser only ever offers tags
+   that would actually narrow things further. */
+function countFacetTags(source) {
+  const counts = new Map();
+  for (const ann of source) {
+    for (const tag of ann.tags) counts.set(tag, (counts.get(tag) || 0) + 1);
+  }
+  // Selected tags stay listed even at zero, so they can always be switched off.
+  for (const tag of state.chosenTags) if (!counts.has(tag)) counts.set(tag, 0);
+  state.facetTags = [...counts].map(([name, count]) => ({ name, count }));
+  state.facetTotal = source.length;
+}
+
 function renderTags() {
   const needle = state.tagFilter.toLowerCase();
-  const list = state.tags.filter((t) => !needle || t.name.toLowerCase().includes(needle));
+  const list = state.facetTags.filter((t) => !needle || t.name.toLowerCase().includes(needle));
   list.sort(state.tagSort === "name"
     ? (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
     : (a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+  const hits = state.tagRegexHits;
   el.tagList.innerHTML = list.slice(0, 300).map((t) =>
-    '<button class="tag' + (state.chosenTags.has(t.name) ? " on" : "") + '" data-tag="' +
+    '<button class="tag' + (state.chosenTags.has(t.name) ? " on" : "") +
+    (hits && hits.has(t.name) ? " re" : "") + '" data-tag="' +
     escapeHtml(t.name) + '">' + escapeHtml(t.name) + '<span class="n">' + t.count + "</span></button>"
   ).join("");
-  if (list.length > 300) {
+  if (!list.length) {
+    el.tagList.innerHTML = '<span class="tag empty">' +
+      (needle ? "No matching tags in these results" : "No tags in these results") + "</span>";
+  } else if (list.length > 300) {
     el.tagList.insertAdjacentHTML("beforeend",
-      '<span class="tag" style="border:0">+' + (list.length - 300) + " more — keep typing</span>");
+      '<span class="tag empty">+' + (list.length - 300) + " more — keep typing</span>");
   }
 
   el.chosenTags.innerHTML = [...state.chosenTags].map((t) =>
     '<button class="tag on" data-tag="' + escapeHtml(t) + '">' + escapeHtml(t) +
     '<span class="x">&times;</span></button>').join("");
-  el.tagModeHint.textContent = state.chosenTags.size
-    ? "(" + state.chosenTags.size + " selected, match " + state.tagMode + ")"
-    : "";
+
+  const narrowing = state.tagMode === "all";
+  el.tagModeToggle.textContent = narrowing ? "all" : "any";
+  el.tagModeToggle.title = narrowing
+    ? "Switch to matching any selected tag"
+    : "Switch to requiring every selected tag";
+  el.tagModeToggle.setAttribute("aria-label",
+    "Matching " + (narrowing ? "all" : "any") + " selected tags. " + el.tagModeToggle.title + ".");
+
+  if (!state.tagRegexSource.trim() || !state.tagRegex) {
+    el.tagRegexHint.textContent = "";
+  } else {
+    el.tagRegexHint.textContent = "matches " + plural(state.tagRegexHits.size, "tag") +
+      (state.chosenTags.size
+        ? (narrowing ? " · AND with the selected tags" : " · OR with the selected tags")
+        : "");
+  }
+
+  const hint = [];
+  if (state.chosenTags.size) hint.push(state.chosenTags.size + " selected");
+  const n = state.facetTags.length.toLocaleString();
+  hint.push(narrowing ? n + " in " + plural(state.facetTotal, "result") : n + " you can add");
+  el.tagModeHint.textContent = "(" + hint.join(" · ") + ")";
   updateFilterCount();
 }
 
 function toggleTag(tag) {
   if (state.chosenTags.has(tag)) state.chosenTags.delete(tag);
   else state.chosenTags.add(tag);
-  renderTags();
-  applyFilters();
+  applyFilters();   // recounts the facets and re-renders the chooser
+}
+
+function showFilters(open) {
+  el.filters.hidden = !open;
+  el.filtersToggle.setAttribute("aria-expanded", String(open));
 }
 
 function updateFilterCount() {
   const n = state.chosenTags.size + (state.volume ? 1 : 0) + (state.book ? 1 : 0) +
-            (state.kind ? 1 : 0);
+            (state.noteOnly ? 1 : 0) + (state.tagRegex ? 1 : 0);
   el.filterCount.hidden = n === 0;
   el.filterCount.textContent = n;
 }
@@ -511,13 +625,9 @@ function wire() {
       applyFilters();
     });
   });
-  document.querySelectorAll("[data-tagmode]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      state.tagMode = btn.dataset.tagmode;
-      document.querySelectorAll("[data-tagmode]").forEach((b) => b.classList.toggle("on", b === btn));
-      renderTags();
-      applyFilters();
-    });
+  el.tagModeToggle.addEventListener("click", () => {
+    state.tagMode = state.tagMode === "all" ? "any" : "all";
+    applyFilters();
   });
   document.querySelectorAll("[data-tagsort]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -530,11 +640,7 @@ function wire() {
   $("#opt-regex").addEventListener("change", (e) => { state.regex = e.target.checked; applyFilters(); });
   $("#opt-case").addEventListener("change", (e) => { state.caseSensitive = e.target.checked; applyFilters(); });
 
-  el.filtersToggle.addEventListener("click", () => {
-    const open = el.filters.hidden;
-    el.filters.hidden = !open;
-    el.filtersToggle.setAttribute("aria-expanded", String(open));
-  });
+  el.filtersToggle.addEventListener("click", () => showFilters(el.filters.hidden));
 
   el.volume.addEventListener("change", (e) => {
     state.volume = e.target.value; renderBookOptions(); updateFilterCount(); applyFilters();
@@ -542,16 +648,20 @@ function wire() {
   el.book.addEventListener("change", (e) => {
     state.book = e.target.value; updateFilterCount(); applyFilters();
   });
-  el.kind.addEventListener("change", (e) => {
-    state.kind = e.target.value; updateFilterCount(); applyFilters();
+  el.noteOnly.addEventListener("change", (e) => {
+    state.noteOnly = e.target.checked; updateFilterCount(); applyFilters();
   });
+  el.tagRegex.addEventListener("input", debounce((e) => {
+    state.tagRegexSource = e.target.value;
+    applyFilters();
+  }, 160));
   el.sortSel.addEventListener("change", (e) => { state.sort = e.target.value; applyFilters(); });
 
   el.tagSearch.addEventListener("input", debounce((e) => {
     state.tagFilter = e.target.value; renderTags();
   }, 120));
   el.tagsClear.addEventListener("click", () => {
-    state.chosenTags.clear(); renderTags(); applyFilters();
+    state.chosenTags.clear(); applyFilters();
   });
 
   const onTagClick = (e) => {
@@ -561,17 +671,20 @@ function wire() {
   el.tagList.addEventListener("click", onTagClick);
   el.chosenTags.addEventListener("click", onTagClick);
 
-  el.results.addEventListener("click", (e) => {
+  // Any click outside the header -- annotations, page margins, anywhere --
+  // gets the filter panel out of the way. The panel lives inside .topbar, so
+  // clicking its own controls (or the toggle) is excluded.
+  // Capture phase on purpose: clicking a chip re-renders the list, which
+  // detaches the clicked node, and a detached node reports no .topbar ancestor.
+  document.addEventListener("click", (e) => {
+    if (!el.filters.hidden && !e.target.closest(".topbar")) showFilters(false);
+  }, true);
+
+  document.querySelector("main").addEventListener("click", (e) => {
     const open = e.target.closest("[data-open]");
     if (open) { openReader(open.dataset.open); return; }
     const tag = e.target.closest("[data-tag]");
-    if (tag) {
-      if (el.filters.hidden) {
-        el.filters.hidden = false;
-        el.filtersToggle.setAttribute("aria-expanded", "true");
-      }
-      toggleTag(tag.dataset.tag);
-    }
+    if (tag) toggleTag(tag.dataset.tag);
   });
 
   el.more.addEventListener("click", renderMore);
@@ -593,9 +706,8 @@ function wire() {
     el.volume.innerHTML = '<option value="">All volumes</option>' +
       state.volumes.map((v) => '<option value="' + v.id + '">' + escapeHtml(v.title) + "</option>").join("");
     renderBookOptions();
-    renderTags();
     wire();
-    applyFilters();
+    applyFilters();   // builds the tag facets and renders the chooser
   } catch (err) {
     el.status.innerHTML = "Failed to load: " + escapeHtml(err.message);
     console.error(err);

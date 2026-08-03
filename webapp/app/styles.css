@@ -149,6 +149,14 @@ button { cursor: pointer; }
   font-size: .85rem;
 }
 
+.opts-label { color: var(--muted); flex: 0 0 auto; }
+
+.search-flags { display: inline-flex; align-items: center; gap: .5rem; flex: 0 0 auto; }
+
+/* Regex / case only shape a search term, so they are dimmed until there is one.
+   The Show buttons always filter, so they are never dimmed. */
+.search-opts.idle .search-flags { opacity: .5; }
+
 .segmented {
   display: inline-flex;
   border: 1px solid var(--line);
@@ -168,8 +176,59 @@ button { cursor: pointer; }
 .segmented button.on { background: var(--accent-soft); color: var(--text); font-weight: 600; }
 .segmented.small button { padding: .25rem .55rem; font-size: .8rem; }
 
-.check { display: inline-flex; align-items: center; gap: .3rem; color: var(--muted); }
+/* Sits at the right end of the search options row. */
+.sort-control {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.sort-control select {
+  padding: .2rem 1.4rem .2rem .45rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* flex-shrink: 0 + nowrap, or a squeezed label breaks one word per line. */
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  color: var(--muted);
+}
 .check input { accent-color: var(--accent); }
+
+/* "Match [all] selected tags" -- the bracketed word is a two-state button. */
+.sentence {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: .85rem;
+}
+
+.inline-toggle {
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+  font-size: .85rem;
+  padding: .15rem .5rem;
+  min-width: 2.6rem;
+}
+
+.inline-toggle:hover { filter: brightness(1.06); }
 
 .err { color: #c0392b; font-size: .8rem; }
 @media (prefers-color-scheme: dark) { .err { color: #ff8b7d; } }
@@ -197,7 +256,15 @@ button { cursor: pointer; }
 
 .field { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
 
-.field > label { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.field > label, .field > .field-label {
+  font-size: .78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+/* the checkbox inside a field keeps normal casing */
+.field .check { text-transform: none; letter-spacing: 0; font-size: .9rem; }
 
 .field select, .field input {
   width: 100%;
@@ -223,6 +290,24 @@ button { cursor: pointer; }
 
 .hint { text-transform: none; letter-spacing: 0; }
 
+.tag-regex {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-top: .5rem;
+}
+
+.tag-regex label { font-size: .78rem; color: var(--muted); text-transform: uppercase;
+                   letter-spacing: .04em; flex: 0 0 auto; }
+.tag-regex input { flex: 1 1 14rem; min-width: 8rem; font-family: ui-monospace, SFMono-Regular,
+                   Menlo, Consolas, monospace; font-size: .85rem; }
+.tag-regex .hint { text-transform: none; letter-spacing: 0; font-size: .8rem; color: var(--muted); }
+
+/* tags the regex currently matches */
+.tag.re { border-color: var(--focus); border-style: dashed; }
+.tag.re.on { border-style: solid; }
+
 .chosen-tags { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .5rem; }
 .chosen-tags:empty { display: none; }
 
@@ -247,6 +332,7 @@ button { cursor: pointer; }
 
 .tag .n { color: var(--muted); font-size: .75em; margin-left: .3em; }
 .tag.on { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+.tag.empty { border: 0; background: none; color: var(--muted); font-style: italic; }
 .tag.on .x { margin-left: .35em; color: var(--muted); }
 
 /* ---------- results ---------- */
