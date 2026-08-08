@@ -13,6 +13,6 @@ if [ ! -f app/data/app.sqlite ]; then
   python3 build_data.py --verses "$VERSES" --annotations "$ANNOTATIONS"
 fi
 
-echo "serving http://localhost:$PORT  (ctrl-c to stop)"
-cd app
-exec python3 -m http.server "$PORT"
+# dev_server.py serves app/ exactly like http.server did, and additionally
+# accepts the content the app fetches at runtime so the next build embeds it.
+exec python3 dev_server.py --port "$PORT"

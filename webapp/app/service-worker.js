@@ -1,7 +1,10 @@
 /* Cache-first shell + dataset so the app works offline once loaded.
    Bump CACHE whenever the shell or data.sqlite is rebuilt. */
 
-const CACHE = "scripture-notes-v3";   // bumped: app.sqlite rebuilt with corrected highlight offsets
+const CACHE = "scripture-notes-v4";   // bumped: documents/paragraphs schema + content fetch
+const CONTENT_CACHE = "scripture-notes-content-v1";
+const CONTENT_ORIGIN = "https://www.churchofjesuschrist.org";
+const CONTENT_PATH = "/study/api/v3/language-pages/type/content";
 const ASSETS = [
   "./",
   "./index.html",
@@ -26,7 +29,9 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys
+        .filter((k) => k !== CACHE && k !== CONTENT_CACHE)
+        .map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -48,10 +53,52 @@ async function store(request, response) {
   return response;
 }
 
+/* The Gospel Library content API is the one cross-origin host we touch. It gets
+   a network-first route so revised pages are picked up, falling back to the
+   cached copy offline. Everything else cross-origin still passes straight
+   through -- this must not become a general cross-origin proxy. */
+function isContentApi(url) {
+  return url.origin === CONTENT_ORIGIN && url.pathname === CONTENT_PATH;
+}
+
+/* The app already keeps every fetched document in IndexedDB, so this cache is
+   only an offline safety net for reloads. Without a bound it would grow into a
+   second full copy of the corpus, so keep it to the most recent entries. */
+const CONTENT_CACHE_MAX = 300;
+let trimming = false;
+
+async function trimContentCache(cache) {
+  if (trimming) return;
+  trimming = true;
+  try {
+    const keys = await cache.keys();
+    for (let i = 0; i < keys.length - CONTENT_CACHE_MAX; i++) await cache.delete(keys[i]);
+  } finally {
+    trimming = false;
+  }
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
+
+  if (isContentApi(url)) {
+    event.respondWith(
+      fetch(request)
+        .then(async (res) => {
+          if (res.ok) {
+            const cache = await caches.open(CONTENT_CACHE);
+            await cache.put(request, res.clone());
+            trimContentCache(cache);
+          }
+          return res;
+        })
+        .catch(() => caches.match(request).then((hit) => hit || Response.error()))
+    );
+    return;
+  }
+
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === "navigate" || isShell(url)) {

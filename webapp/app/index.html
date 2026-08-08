@@ -22,18 +22,18 @@
   </div>
 
   <div class="searchbar">
-    <input type="search" id="q" placeholder="Search notes and scripture text…"
+    <input type="search" id="q" placeholder="Search notes and content…"
            autocomplete="off" spellcheck="false" aria-label="Search">
     <button class="clear-btn" id="q-clear" title="Clear search" hidden>&times;</button>
   </div>
 
   <div class="search-opts">
-    <span class="opts-label">Show</span>
-    <div class="segmented" role="group" aria-label="Show"
-         title="Also decides which text a search term is matched against">
-      <button data-scope="both" class="on">All</button>
-      <button data-scope="notes">Notes</button>
-      <button data-scope="verses">Scripture</button>
+    <span class="opts-label">Search in</span>
+    <div class="segmented" role="group" aria-label="Search in"
+         title="Which text a search term is matched against">
+      <button data-searchin="both" class="on">Both</button>
+      <button data-searchin="notes">Notes</button>
+      <button data-searchin="content">Content</button>
     </div>
     <span class="search-flags">
       <label class="check"><input type="checkbox" id="opt-regex"> Regex</label>
@@ -51,23 +51,21 @@
   </div>
 
   <section class="filters" id="filters" hidden>
+  <div class="field types-field">
+    <span class="field-label">Content type
+      <button class="link-btn" id="types-all" hidden>Select all</button>
+    </span>
+    <div class="type-list" id="type-list"></div>
+  </div>
+
   <div class="filter-grid">
-    <div class="field">
+    <div class="field" id="f-volume-field">
       <label for="f-volume">Volume</label>
       <select id="f-volume"><option value="">All volumes</option></select>
     </div>
-    <div class="field">
+    <div class="field" id="f-book-field">
       <label for="f-book">Book</label>
       <select id="f-book"><option value="">All books</option></select>
-    </div>
-    <div class="field">
-      <span class="field-label">Limit to</span>
-      <div>
-        <label class="check"
-               title="Only entries not tied to a verse: journal entries and notes on talks or manuals">
-          <input type="checkbox" id="f-note-only"> Note only
-        </label>
-      </div>
     </div>
   </div>
 
@@ -93,6 +91,21 @@
     </div>
     <div class="chosen-tags" id="chosen-tags"></div>
     <div class="tag-list" id="tag-list"></div>
+  </div>
+
+  <div class="field content-field">
+    <span class="field-label">Downloaded content</span>
+    <div class="content-controls">
+      <label class="check" title="When idle and online, quietly download the content you have
+not opened yet, so it is available offline later">
+        <input type="checkbox" id="warm-toggle"> Download in the background
+      </label>
+      <button class="link-btn" id="export-content"
+              title="Download everything fetched so far, to unpack into webapp/.cache/documents/">
+        Export fetched content
+      </button>
+      <span class="hint" id="warm-status"></span>
+    </div>
   </div>
   </section>
 </header>

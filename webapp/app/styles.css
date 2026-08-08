@@ -274,6 +274,47 @@ button { cursor: pointer; }
   background: var(--surface);
 }
 
+/* ---------- content type ---------- */
+
+.types-field, .content-field {
+  max-width: 46rem;
+  margin: 0 auto .75rem;
+}
+
+.types-field .field-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.type-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem .75rem;
+  margin-top: .35rem;
+}
+
+.check.type { font-size: .85rem; color: var(--text); }
+.check.type .n { color: var(--muted); font-size: .78em; margin-left: .3em; }
+
+/* Volume/Book are scripture-only; they stay visible but inert so the layout
+   does not jump when Scriptures is unticked. */
+.field.disabled { opacity: .45; }
+.field.disabled select { cursor: not-allowed; }
+
+.content-field { margin-top: .75rem; }
+
+.content-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem .9rem;
+  margin-top: .35rem;
+}
+
+.content-controls .hint { color: var(--muted); font-size: .8rem; }
+
 .tags-field { margin-top: .75rem; }
 
 .tag-controls { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
@@ -403,6 +444,25 @@ main {
 
 .refs { margin-top: .5rem; font-size: .82rem; color: var(--muted); }
 
+/* Author / issue line under a non-scripture reference. */
+.byline { margin-top: .15rem; font-size: .84rem; color: var(--muted); }
+
+/* Content that has not been downloaded yet, or could not be. Deliberately
+   quiet: the annotation itself is still the point of the card. */
+.unfetched {
+  margin: .55rem 0 0;
+  padding: .4rem .6rem;
+  background: var(--surface-2);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: .86rem;
+}
+
+.unfetched .link-btn { font-size: .86rem; }
+
+.doc-link { margin: .1rem 0 .6rem; font-size: .85rem; }
+.doc-link a { color: var(--focus); }
+
 mark.hl { background: var(--hl-yellow); color: inherit; border-radius: 2px; padding: .05em 0; }
 mark.hl-pink { background: var(--hl-pink); }
 mark.hl-green { background: var(--hl-green); }
@@ -476,3 +536,8 @@ mark.q { background: var(--match); color: inherit; outline: 1px solid var(--acce
   margin-left: -.35rem;
   margin-right: -.35rem;
 }
+
+/* Surrounding talk text, present for context only. Recessed rather than
+   restyled, so emphasis reads as "this is the annotated paragraph" and stays
+   distinct from a highlight, which marks the words actually selected. */
+.reader-body .verse.context { color: var(--muted); }

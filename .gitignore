@@ -1,6 +1,7 @@
 *.db
 *.sqlite
 __pycache__/
+webapp/.cache/
 analysis/volume_book_info.csv
 create_scriptures_db.sql
 linux_scriptures_venv/
